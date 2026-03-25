@@ -861,131 +861,55 @@ function addRecurrente() {
   const monto = parseFloat(document.getElementById('rec-monto').value);
   const cat   = document.getElementById('rec-cat').value;
   const dia   = parseInt(document.getElementById('rec-dia').value) || 1;
-  if (!desc||!monto){alert('Completa descripción y monto.');return;}
-  db.recurrentes.push({id:Date.now(),desc,monto,cat,dia,ultimoMes:''});
+
+  if (!desc || !monto) {
+    alert('Completa descripción y monto.');
+    return;
+  }
+
+  db.recurrentes.push({
+    id: Date.now(),
+    desc,
+    monto,
+    cat,
+    dia,
+    ultimoMes: ''
+  });
+
   saveDB();
-  ['rec-desc','rec-monto','rec-dia'].forEach(id=>{document.getElementById(id).value='';});
-  closeSheet('sheet-recurrente',null);
+
+  ['rec-desc','rec-monto','rec-dia'].forEach(id => {
+    document.getElementById(id).value = '';
+  });
+
+  closeSheet('sheet-recurrente', null);
   renderMas();
 }
 
-function aplicarRecurrentes() {
-  const mes=mesActual(); let n=0;
-  db.recurrentes.forEach(r=>{
-    if(r.ultimoMes!==mes){
-      const dia=Math.min(r.dia,28);
-      db.gastos.push({id:Date.now()+Math.random(),desc:r.desc+' (recurrente)',monto:r.monto,cat:r.cat,tipo:'fijo',fecha:`${mes}-${String(dia).padStart(2,'0')}`});
-      r.ultimoMes=mes; n++;
-    }
-  });
-  saveDB(); renderMas(); renderGastos();
-  mostrarMsg(n>0?`✓ ${n} gasto(s) aplicado(s).`:'Ya aplicados este mes.');
-}
-
-function delRecurrente(id) {
-  db.recurrentes=db.recurrentes.filter(r=>r.id!==id);
-  saveDB(); renderMas();
-}
-
+// 🔄 RENDER MÁS
 function renderMas() {
-  const mes=mesActual();
-  const pendientes=db.recurrentes.filter(r=>r.ultimoMes!==mes);
-  const el=document.getElementById('lista-recurrentes');
-  if(!db.recurrentes.length){
-    el.innerHTML='<div class="empty" style="padding:16px 0;">Sin gastos recurrentes.<br>Agrega arriendo, Netflix, etc.</div>';
-  } else {
-    el.innerHTML=db.recurrentes.map(r=>`
-      <div class="list-item">
-        <div>
-          <div class="item-main">${r.desc}</div>
-          <div class="item-sub">Día ${r.dia} · ${r.cat} · <span class="badge ${r.ultimoMes===mes?'badge-green':'badge-amber'}">${r.ultimoMes===mes?'Aplicado':'Pendiente'}</span></div>
-        </div>
-        <div style="display:flex;align-items:center;gap:8px;">
-          <div class="item-amount">${fmt(r.monto)}</div>
-          <button class="btn-sm btn-red" style="padding:3px 8px;" onclick="delRecurrente(${r.id})">×</button>
-        </div>
-      </div>`).join('');
+  const el = document.getElementById('lista-recurrentes');
+
+  if (!db.recurrentes.length) {
+    el.innerHTML = '<div class="empty">Sin gastos recurrentes</div>';
+    return;
   }
-  const apEl=document.getElementById('recurrentes-aplicar');
-  if(pendientes.length>0){
-    apEl.innerHTML=`<button class="btn" style="background:var(--accent);color:white;margin-top:4px;" onclick="aplicarRecurrentes()">Aplicar ${pendientes.length} gasto(s) pendiente(s) este mes</button>`;
-  } else if(db.recurrentes.length>0){
-    apEl.innerHTML='<div style="font-size:12px;color:var(--green);text-align:center;padding:6px 0;">✓ Todos aplicados este mes</div>';
-  } else { apEl.innerHTML=''; }
+
+  el.innerHTML = db.recurrentes.map(r => `
+    <div class="list-item">
+      <div>
+        <div class="item-main">${r.desc}</div>
+        <div class="item-sub">Día ${r.dia} · ${r.cat}</div>
+      </div>
+      <div class="item-amount red">${fmt(r.monto)}</div>
+    </div>
+  `).join('');
 }
 
-function exportarCSV() {
-  let csv='Tipo,Fecha,Descripcion,Categoria,Monto\n';
-  db.ingresos.forEach(i=>{csv+=`Ingreso,${i.fecha},"${i.desc}",${i.cat},${i.monto}\n`;});
-  db.gastos.forEach(g=>{csv+=`Gasto,${g.fecha},"${g.desc}",${g.cat},${g.monto}\n`;});
-  db.cuotas.forEach(c=>{csv+=`Cuota TC,${c.fecha},"${c.desc} (${c.actual}/${c.n})",TC,${c.mc}\n`;});
-  descargar(new Blob([csv],{type:'text/csv;charset=utf-8;'}), `finanzas_${mesActual()}.csv`);
-  mostrarMsg('✓ CSV exportado.');
-}
-
-function respaldarDatos() {
-  descargar(new Blob([JSON.stringify(db,null,2)],{type:'application/json'}), `finanzas_respaldo_${today()}.json`);
-  mostrarMsg('✓ Respaldo descargado.');
-}
-
-function restaurarDatos(event) {
-  const file=event.target.files[0]; if(!file)return;
-  const reader=new FileReader();
-  reader.onload=e=>{
-    try {
-      const p=JSON.parse(e.target.result);
-      if(!p.ingresos||!p.gastos)throw new Error();
-      db={ingresos:p.ingresos||[],gastos:p.gastos||[],cuotas:p.cuotas||[],metas:p.metas||[],tarjetas:p.tarjetas||[],recurrentes:p.recurrentes||[]};
-      saveDB();
-      renderResumen();renderIngresos();renderGastos();renderTarjetas();renderMetas();renderMas();
-      mostrarMsg('✓ Datos restaurados correctamente.');
-    } catch(e){mostrarMsg('✗ Archivo inválido.');}
-  };
-  reader.readAsText(file);
-  event.target.value='';
-}
-
-function descargar(blob,nombre){
-  const url=URL.createObjectURL(blob);
-  const a=document.createElement('a'); a.href=url; a.download=nombre; a.click();
-  URL.revokeObjectURL(url);
-}
-
-function mostrarMsg(txt){
-  const el=document.getElementById('datos-msg');
-  if(el){el.textContent=txt;setTimeout(()=>{el.textContent='';},3500);}
-}
-
-// ── Delete con confirmación inline ────────────────────────────────────────────
-function confirmarDel(wrapId, callback) {
-  const wrap=document.getElementById(wrapId);
-  if(!wrap)return;
-  wrap.innerHTML=`
-    <span style="font-size:11px;color:var(--text2);">¿Eliminar?</span>
-    <button class="btn-sm btn-red" style="padding:5px 10px;font-size:12px;" onclick="(${callback.toString()})()">Sí</button>
-    <button class="btn-sm" style="background:var(--bg3);color:var(--text2);padding:5px 10px;font-size:12px;" onclick="this.closest('.list-item,div').innerHTML=''">No</button>`;
-}
-
-// ── Init ──────────────────────────────────────────────────────────────────────
+// 🚀 INIT APP
 initDates();
-document.getElementById('month-nav').style.display='flex';
-
-// Auto-aplicar recurrentes al inicio del mes
-(function(){
-  const mes=mesActual(); let applied=false;
-  db.recurrentes.forEach(r=>{
-    if(r.ultimoMes!==mes){
-      const dia=Math.min(r.dia,28);
-      db.gastos.push({id:Date.now()+Math.random(),desc:r.desc+' (recurrente)',monto:r.monto,cat:r.cat,tipo:'fijo',fecha:`${mes}-${String(dia).padStart(2,'0')}`});
-      r.ultimoMes=mes; applied=true;
-    }
-  });
-  if(applied)saveDB();
-})();
-
 renderResumen();
-renderIngresos();
-renderGastos();
+
 </script>
 </body>
 </html>
