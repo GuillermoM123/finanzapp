@@ -423,17 +423,29 @@ function addIngreso() {
   const monto = parseFloat(document.getElementById('ing-monto').value);
   const cat   = document.getElementById('ing-cat').value;
   const fecha = document.getElementById('ing-fecha').value;
-  if (!desc || !monto || monto <= 0) { alert('Completa descripción y monto.'); return; }
+
+  if (!desc || !monto || monto <= 0) {
+    alert('Completa descripción y monto.');
+    return;
+  }
+
   db.ingresos.push({ id: Date.now(), desc, monto, cat, fecha });
   saveDB();
+
   document.getElementById('ing-desc').value = '';
   document.getElementById('ing-monto').value = '';
+
   renderIngresos();
 }
 
 function renderIngresos() {
   const el = document.getElementById('lista-ingresos');
-  if (!db.ingresos.length) { el.innerHTML = '<div class="empty">Sin ingresos registrados</div>'; return; }
+
+  if (!db.ingresos.length) {
+    el.innerHTML = '<div class="empty">Sin ingresos registrados</div>';
+    return;
+  }
+
   el.innerHTML = [...db.ingresos].reverse().map(i => `
     <div class="list-item">
       <div style="flex:1;min-width:0;">
@@ -442,18 +454,28 @@ function renderIngresos() {
       </div>
       <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">
         <div class="item-amount green">${fmt(i.monto)}</div>
-        <div id="di-${i.id}">
-          <button class="btn-sm btn-red" style="font-size:18px;padding:4px 10px;line-height:1;" onclick="confirmarDel('di-${i.id}',()=>delIngreso(${i.id}))">×</button>
-        </div>
+        <button 
+          class="btn-sm btn-red" 
+          style="font-size:18px;padding:4px 10px;line-height:1;" 
+          onclick="confirmarDel(()=>delIngreso(${i.id}))"
+        >×</button>
       </div>
-    </div>`).join('');
+    </div>
+  `).join('');
 }
 
 function delIngreso(id) {
   db.ingresos = db.ingresos.filter(x => x.id !== id);
-  saveDB(); renderIngresos();
+  saveDB();
+  renderIngresos();
 }
 
+// ✅ FUNCIÓN QUE FALTABA (ESTA ES LA CLAVE)
+function confirmarDel(callback) {
+  if (confirm('¿Eliminar este ingreso?')) {
+    callback();
+  }
+}
 // ── GASTOS ────────────────────────────────────────────────────────────────────
 function addGasto() {
   const desc  = document.getElementById('g-desc').value.trim();
