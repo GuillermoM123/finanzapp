@@ -418,6 +418,11 @@ function getMesVista() {
 function cambiarMes(delta) { mesOffset += delta; renderResumen(); }
 
 // ── INGRESOS ──────────────────────────────────────────────────────────────────
+// ── INGRESOS ─────────────────────────────────────────────────────────────
+
+let editandoIngresoId = null;
+
+// ➕ AGREGAR / EDITAR
 function addIngreso() {
   const desc  = document.getElementById('ing-desc').value.trim();
   const monto = parseFloat(document.getElementById('ing-monto').value);
@@ -429,15 +434,39 @@ function addIngreso() {
     return;
   }
 
-  db.ingresos.push({ id: Date.now(), desc, monto, cat, fecha });
+  if (editandoIngresoId) {
+    // ✏️ EDITAR
+    const ingreso = db.ingresos.find(i => i.id === editandoIngresoId);
+
+    ingreso.desc = desc;
+    ingreso.monto = monto;
+    ingreso.cat = cat;
+    ingreso.fecha = fecha;
+
+    editandoIngresoId = null;
+
+  } else {
+    // ➕ NUEVO
+    db.ingresos.push({
+      id: Date.now(),
+      desc,
+      monto,
+      cat,
+      fecha
+    });
+  }
+
   saveDB();
 
+  // limpiar
   document.getElementById('ing-desc').value = '';
   document.getElementById('ing-monto').value = '';
 
   renderIngresos();
 }
 
+
+// 📋 MOSTRAR LISTA
 function renderIngresos() {
   const el = document.getElementById('lista-ingresos');
 
@@ -450,27 +479,55 @@ function renderIngresos() {
     <div class="list-item">
       <div style="flex:1;min-width:0;">
         <div class="item-main">${i.desc}</div>
-        <div class="item-sub">${i.fecha} · <span class="badge badge-blue">${i.cat}</span></div>
+        <div class="item-sub">
+          ${i.fecha} · <span class="badge badge-blue">${i.cat}</span>
+        </div>
       </div>
-      <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">
+
+      <div style="display:flex;align-items:center;gap:8px;">
+        
         <div class="item-amount green">${fmt(i.monto)}</div>
+
+        <!-- ✏️ EDITAR -->
+        <button 
+          class="btn-sm" 
+          onclick="editarIngreso(${i.id})"
+        >✏️</button>
+
+        <!-- ❌ ELIMINAR -->
         <button 
           class="btn-sm btn-red" 
-          style="font-size:18px;padding:4px 10px;line-height:1;" 
           onclick="confirmarDel(()=>delIngreso(${i.id}))"
         >×</button>
+
       </div>
     </div>
   `).join('');
 }
 
+
+// ✏️ EDITAR INGRESO
+function editarIngreso(id) {
+  const ingreso = db.ingresos.find(i => i.id === id);
+
+  document.getElementById('ing-desc').value = ingreso.desc;
+  document.getElementById('ing-monto').value = ingreso.monto;
+  document.getElementById('ing-cat').value = ingreso.cat;
+  document.getElementById('ing-fecha').value = ingreso.fecha;
+
+  editandoIngresoId = id;
+}
+
+
+// ❌ ELIMINAR
 function delIngreso(id) {
   db.ingresos = db.ingresos.filter(x => x.id !== id);
   saveDB();
   renderIngresos();
 }
 
-// ✅ FUNCIÓN QUE FALTABA (ESTA ES LA CLAVE)
+
+// ⚠️ CONFIRMAR ELIMINACIÓN
 function confirmarDel(callback) {
   if (confirm('¿Eliminar este ingreso?')) {
     callback();
